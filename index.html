@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Score Table</title>
+<style>
+  :root {
+    --bg:#0f172a;
+    --card:#020617;
+    --border:#1e293b;
+    --text:#e5e7eb;
+    --muted:#94a3b8;
+    --accent:#38bdf8;
+    --latest:#1e40af;
+    --total:#065f46;
+    --danger:#dc2626;
+  }
+
+  body {
+    font-family: system-ui, sans-serif;
+    background:var(--bg);
+    margin:0;
+    padding:1rem;
+    color:var(--text);
+  }
+
+  h1 { text-align:center; }
+
+  .card {
+    background:var(--card);
+    padding:1rem;
+    border-radius:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.4);
+    margin-bottom:1rem;
+  }
+
+  input, button {
+    width:100%;
+    padding:0.9rem;
+    font-size:1.1rem;
+    border-radius:12px;
+    border:1px solid var(--border);
+    margin-top:0.5rem;
+    background:#020617;
+    color:var(--text);
+  }
+
+  input::placeholder { color:var(--muted); }
+
+  button {
+    background:var(--accent);
+    border:none;
+    color:#020617;
+    font-weight:600;
+  }
+
+  .controls { display:flex; gap:0.5rem; margin-bottom:0.5rem; }
+  .controls button { flex:1; }
+
+  .table-wrapper { overflow-x:auto; }
+
+  table {
+    border-collapse:collapse;
+    width:100%;
+    min-width:500px;
+  }
+
+  th, td {
+    border:1px solid var(--border);
+    padding:0.6rem;
+    text-align:center;
+  }
+
+  th {
+    background:#020617;
+    position:sticky;
+    top:0;
+  }
+
+  td input {
+    width:100%;
+    padding:0.6rem;
+    border-radius:8px;
+    border:1px solid var(--border);
+    text-align:center;
+    font-size:1.1rem;
+    background:#020617;
+    color:var(--text);
+  }
+
+  .total {
+    background:var(--total);
+    font-weight:bold;
+  }
+
+  .latest {
+    background:var(--latest);
+  }
+
+  .delete-round {
+    background:var(--danger);
+    border:none;
+    color:white;
+    border-radius:8px;
+    padding:0.2rem 0.4rem;
+    font-size:0.8rem;
+    margin-left:4px;
+  }
+
+  .rename {
+    font-size:0.9rem;
+    color:var(--accent);
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<h1>Round Score Table</h1>
+
+<div class="card" id="setupCard">
+  <label>Enter player names (comma separated)</label>
+  <input id="namesInput" placeholder="Ram">
+  <button onclick="createTable()">Create Table</button>
+</div>
+
+<div class="card" id="tableCard" style="display:none;">
+  <div class="controls">
+    <button onclick="addRound()">Add Round</button>
+    <button onclick="reset()">Reset</button>
+  </div>
+  <div class="table-wrapper" id="tableContainer"></div>
+</div>
+
+<script>
+let players = [];
+let rounds = [];
+
+function createTable() {
+  const raw = namesInput.value.trim();
+  if (!raw) return alert("Enter at least one name");
+
+  players = raw.split(",").map(n => n.trim()).filter(n => n);
+  rounds = [{}];
+  setupCard.style.display = "none";
+  tableCard.style.display = "block";
+  render();
+}
+
+function addRound() {
+  rounds.push({});
+  render();
+}
+
+function deleteRound(index) {
+  if (!confirm(`Delete Round ${index+1}?`)) return;
+  rounds.splice(index, 1);
+  if (rounds.length === 0) rounds.push({});
+  render();
+}
+
+function renamePlayer(oldName) {
+  const newName = prompt("Rename player:", oldName);
+  if (!newName || newName === oldName) return;
+
+  players = players.map(p => p === oldName ? newName : p);
+
+  rounds.forEach(r => {
+    if (r[oldName] !== undefined) {
+      r[newName] = r[oldName];
+      delete r[oldName];
+    }
+  });
+
+  render();
+}
+
+function reset() {
+  if (confirm("Clear everything?")) location.reload();
+}
+
+function updateScore(player, roundIndex, value) {
+  rounds[roundIndex][player] = Number(value) || 0;
+  renderTotals();
+}
+
+function render() {
+  let html = `<table><thead><tr><th>Player</th>`;
+  rounds.forEach((_, i) => {
+    html += `<th class="${i===rounds.length-1?'latest':''}">
+      R${i+1}
+      <button class="delete-round" onclick="deleteRound(${i})">✕</button>
+    </th>`;
+  });
+  html += `<th>Total</th></tr></thead><tbody>`;
+
+  players.forEach(p => {
+    html += `<tr><td>${p} <span class="rename" onclick="renamePlayer('${p}')">✎</span></td>`;
+    rounds.forEach((r, i) => {
+      const val = r[p] ?? "";
+      html += `<td class="${i===rounds.length-1?'latest':''}">
+        <input type="number" value="${val}" 
+          oninput="updateScore('${p}', ${i}, this.value)">
+      </td>`;
+    });
+    html += `<td class="total" id="total-${p}">0</td></tr>`;
+  });
+
+  html += `</tbody></table>`;
+  tableContainer.innerHTML = html;
+  renderTotals();
+}
+
+function renderTotals() {
+  players.forEach(p => {
+    let total = 0;
+    rounds.forEach(r => total += r[p] || 0);
+    const cell = document.getElementById(`total-${p}`);
+    if (cell) cell.textContent = total;
+  });
+}
+</script>
+
+</body>
+</html>
